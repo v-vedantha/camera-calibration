@@ -5,6 +5,7 @@ PyGaze
 camera_calib
 eyeloop_playground
 .vscode
+mediapipe
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
