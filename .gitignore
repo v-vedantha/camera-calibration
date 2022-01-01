@@ -1,5 +1,10 @@
 .DS_Store
 t_*
+pupil
+PyGaze
+camera_calib
+eyeloop_playground
+.vscode
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
