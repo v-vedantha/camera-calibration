@@ -1,6 +1,3 @@
-[submodule "mediapipe"]
-	path = mediapipe
-	url = https://github.com/google/mediapipe.git
 [submodule "eyeloop"]
 	path = eyeloop
 	url = https://github.com/v-vedantha/eyeloop.git
