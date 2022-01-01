@@ -1,0 +1,12 @@
+[submodule "mediapipe"]
+	path = mediapipe
+	url = https://github.com/google/mediapipe.git
+[submodule "eyeloop"]
+	path = eyeloop
+	url = https://github.com/v-vedantha/eyeloop.git
+[submodule "GazeTracking"]
+	path = GazeTracking
+	url = https://github.com/v-vedantha/GazeTracking.git
+[submodule "irislandmarks_pytorch"]
+	path = irislandmarks_pytorch
+	url = https://github.com/v-vedantha/irislandmarks.pytorch.git
