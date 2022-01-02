@@ -45,7 +45,7 @@ class AI_Calibrate(torch.nn.Module):
         self.screen_dims = torch.tensor([screen_w, screen_h]).reshape(1, 2)
         self.camera_dims = torch.tensor([camera_w, camera_h]).reshape(2, 1)
 
-        self.layer1 = torch.nn.Linear(28, 50)
+        self.layer1 = torch.nn.Linear((108+10) * 2, 50)
         self.layer2 = torch.nn.Linear(50, 2)
 
     def forward(self, input):
@@ -97,22 +97,29 @@ class CoordinatePoint():
 
 class Input():
     def __init__(self, pupil=None, left_pupil_world=None, right_pupil_world=None, buffer=None):
+
+        # Code not used currently
         if buffer is None:
             self.left_pupil_world = left_pupil_world
             self.right_pupil_world = right_pupil_world
             self.pupil = pupil
         else:
-            self.left_pupil_world = pickle.loads(buffer[0])
-            self.right_pupil_world = pickle.loads(buffer[1])
-            #iris = np.zeros((Iris.nums), dtype=np.float32)
-            self.pupil = pickle.loads(buffer[2])
+            try:
+                self.markers = pickle.loads(buffer[0])
+                #self.right_pupil_world = pickle.loads(buffer[1])
+                #iris = np.zeros((Iris.nums), dtype=np.float32)
+                self.pupil = pickle.loads(buffer[1])
+                self.initialized = True
+            except:
+                self.initialized = False
 
     def convert_to_torch(self):
         # Concatenate the pupil, left_pupil_world, and right_pupil_world into a tensor
         pupil_as_tensor = self.pupil.convert_to_torch()
-        left_pupil_world_as_tensor = self.left_pupil_world.convert_to_torch()
-        right_pupil_world_as_tensor = self.right_pupil_world.convert_to_torch()
-        return torch.cat((pupil_as_tensor, left_pupil_world_as_tensor, right_pupil_world_as_tensor), 0)
+        markers_as_tensor = self.markers.convert_to_torch()
+        #left_pupil_world_as_tensor = self.left_pupil_world.convert_to_torch()
+        #right_pupil_world_as_tensor = self.right_pupil_world.convert_to_torch()
+        return torch.cat((pupil_as_tensor, markers_as_tensor), 0)
 
 
 class Point():
@@ -145,5 +152,37 @@ class Iris():
 
     def convert_to_torch(self):
         return self.iris
+    def move_to_shared_mem(self, buffer, index):
+        buffer[index] = pickle.dumps(self)
+
+class MarkerPose():
+    bytes = np.zeros((4), dtype=np.float32).nbytes
+    nums = 4
+    def __init__(self, markers):
+
+        self.markers = markers
+
+    def __repr__(self):
+        return "MarkerPose(x=%f, y=%f)" % (self.markers[0], self.markers[1])
+
+    def convert_to_torch(self):
+        return torch.from_numpy(self.markers).flatten()
+    
+    def move_to_shared_mem(self, buffer, index):
+        buffer[index] = pickle.dumps(self)
+
+class ChessBoard():
+    bytes = np.zeros((4), dtype=np.float32).nbytes
+    nums = 54*2
+
+    def __init__(self, markers):
+        self.markers = markers
+
+    def __repr__(self):
+        return "ChessBoard(x=%f, y=%f)" % (self.markers[0], self.markers[1])
+
+    def convert_to_torch(self):
+        return torch.from_numpy(self.markers).flatten()
+
     def move_to_shared_mem(self, buffer, index):
         buffer[index] = pickle.dumps(self)

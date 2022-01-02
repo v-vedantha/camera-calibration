@@ -7,3 +7,6 @@
 [submodule "irislandmarks_pytorch"]
 	path = irislandmarks_pytorch
 	url = https://github.com/v-vedantha/irislandmarks.pytorch.git
+[submodule "MarkerPose"]
+	path = MarkerPose
+	url = https://github.com/v-vedantha/MarkerPose.git

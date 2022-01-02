@@ -50,8 +50,8 @@ def compute_world_cam(frame):
         return None
     return Point(left_coords[0], left_coords[1]), Point(right_coords[0], right_coords[1])
 
-def world_cam_process(buffer, index_start):
-    camera = cv2.VideoCapture(0)
+def world_cam_process(buffer, index_start, cam_index):
+    camera = cv2.VideoCapture(cam_index)
     while True:
         ret, frame = camera.read()
         if frame is None:
