@@ -13,10 +13,10 @@ def iris_landmark_process(buffer, index_start, cam_index):
 
     while True:
         frame = camera.read()[1]
-        frame = np.asarray(frame)
-        frame = frame[200:, 800:1600]
         if frame is None:
             continue
+        frame = np.asarray(frame)
+        frame = frame[200:, 800:1600]
         frame = np.asarray(cv2.resize(cv2.flip(frame, 1), (64, 64)))
         eye, iris = net.predict_on_image(frame)
         frame = cv2.circle(frame, (int(iris.flatten()[0]), int(iris.flatten()[1])), 3, (0, 0, 255), -1)

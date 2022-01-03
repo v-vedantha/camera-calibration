@@ -13,9 +13,10 @@ def chessboard_process(buffer, index, cam_index):
     camera = cv2.VideoCapture(cam_index)
     nline = 6
     ncol = 9
-    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
     while True:
         frame = camera.read()[1]
+        if frame is None:
+            continue
         frame = cv2.flip(frame, 1)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         ret, corners = cv2.findChessboardCorners(gray, (nline, ncol), None)

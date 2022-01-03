@@ -29,7 +29,7 @@ def main():
     #w = Process(target=world_cam_process, args=(buffer, 0))
     #chessboard_process(buffer, 0)
     m = Process(target=chessboard_process, args=(buffer, 0, 1))
-    p = Process(target=iris_landmark_process, args=(buffer, 1, 0))
+    p = Process(target=iris_landmark_process, args=(buffer, 1, 2))
     m.start()
     p.start()
     while True:

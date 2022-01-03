@@ -75,7 +75,7 @@ class Predictor():
         self.camera_h = camera_h
 
         self.model = AI_Calibrate(screen_w, screen_h, camera_w, camera_h)
-        self.optim = torch.optim.Adam(self.model.parameters(), lr=0.01)
+        self.optim = torch.optim.Adam(self.model.parameters(), lr=0.1)
 
     def add_calibration_point(self, input, output):
         input = input.convert_to_torch()
