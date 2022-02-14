@@ -4,8 +4,8 @@ import cv2
 
 import sys
 import os
-sys.path.append('/Users/vedantha/Desktop/camera-calibration/MarkerPose/Python/modules')
-sys.path.append('/Users/vedantha/Desktop/camera-calibration/MarkerPose/Python')
+sys.path.append('MarkerPose/Python/modules')
+sys.path.append('MarkerPose/Python')
 import models
 import utils
 from coordinate_mapping import MarkerPose

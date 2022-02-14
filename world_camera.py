@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 from coordinate_mapping import Point
 import sys
-sys.path.append("/Users/vedantha/Desktop/camera-calibration/GazeTracking")
+sys.path.append("GazeTracking")
 from gaze_tracking import GazeTracking
 det = cv2.QRCodeDetector()
 gaze = GazeTracking()

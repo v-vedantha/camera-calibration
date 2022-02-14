@@ -2,13 +2,13 @@ import numpy as np
 import torch
 import cv2
 import sys
-sys.path.append('/Users/vedantha/Desktop/camera-calibration/irislandmarks_pytorch/')
+sys.path.append('irislandmarks_pytorch/')
 from irislandmarks_pytorch.irislandmarks import IrisLandmarks
 from coordinate_mapping import Iris
-def iris_landmark_process(buffer, index_start, cam_index):
+def iris_landmark_process(buffer, index_start, cam_index, mapper):
     
     net = IrisLandmarks()
-    net.load_weights("/Users/vedantha/Desktop/camera-calibration/irislandmarks_pytorch/irislandmarks.pth")
+    net.load_weights("irislandmarks_pytorch/irislandmarks.pth")
     camera = cv2.VideoCapture(cam_index)
 
     while True:
@@ -19,10 +19,13 @@ def iris_landmark_process(buffer, index_start, cam_index):
         frame = frame[200:, 800:1600]
         frame = np.asarray(cv2.resize(cv2.flip(frame, 1), (64, 64)))
         eye, iris = net.predict_on_image(frame)
-        frame = cv2.circle(frame, (int(iris.flatten()[0]), int(iris.flatten()[1])), 3, (0, 0, 255), -1)
+
+        num_points = 0
+        for p in iris[0,:,:2]:
+            frame = cv2.circle(frame, (int(p[0]), int(p[1])), 1, (0, 0, 255), -1)
         cv2.imshow("iris", cv2.resize(frame, (320, 240)))
         cv2.waitKey(1)
-        Iris(eye, iris).move_to_shared_mem(buffer, index_start)
+        mapper(eye, iris).move_to_shared_mem(buffer, index_start)
 
         
 

@@ -9,7 +9,7 @@ import os
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def chessboard_process(buffer, index, cam_index):
+def chessboard_process(buffer, index, cam_index, mapper):
     camera = cv2.VideoCapture(cam_index)
     nline = 6
     ncol = 9
@@ -30,7 +30,7 @@ def chessboard_process(buffer, index, cam_index):
         cv2.waitKey(1)
         # Show image
         # Write to shared memory
-        ChessBoard(corners).move_to_shared_mem(buffer, index)
+        mapper(corners).move_to_shared_mem(buffer, index)
 
 
 

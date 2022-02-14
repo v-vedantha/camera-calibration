@@ -82,6 +82,10 @@ class Predictor():
         output = output.convert_to_torch().reshape(1,2)
         self.optim.zero_grad()
         pred_output = self.model(input)
+        print("Input: ", input)
+        print("Output: ", output)
+        print("Predicted: ", pred_output)
+        print("Difference: ", pred_output - output)
         loss = torch.nn.MSELoss()(pred_output, output)
         loss.backward()
         self.optim.step()
@@ -97,7 +101,6 @@ class CoordinatePoint():
 
 class Input():
     def __init__(self, pupil=None, left_pupil_world=None, right_pupil_world=None, buffer=None):
-
         # Code not used currently
         if buffer is None:
             self.left_pupil_world = left_pupil_world
@@ -183,6 +186,25 @@ class ChessBoard():
 
     def convert_to_torch(self):
         return torch.from_numpy(self.markers).flatten()
+
+    def move_to_shared_mem(self, buffer, index):
+        buffer[index] = pickle.dumps(self)
+
+class Ellipse():
+    bytes = np.zeros((4), dtype=np.float32).nbytes
+    nums = 4
+
+    def __init__(self, ellipse):
+        self.ellipse = ellipse
+
+    def __repr__(self):
+        return "Ellipse(x=%f, y=%f)" % (self.ellipse[0], self.ellipse[1])
+
+    def convert_to_torch(self):
+        center0 = list(self.ellipse[0])
+        center1 = list(self.ellipse[1])
+        radius = [self.ellipse[2]]
+        return torch.tensor(center0 + center1 + radius, dtype=torch.float32).flatten()
 
     def move_to_shared_mem(self, buffer, index):
         buffer[index] = pickle.dumps(self)

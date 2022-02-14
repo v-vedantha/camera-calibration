@@ -46,9 +46,9 @@ for _ in range(int(sys.argv[2])):
 
 # cv2.destroyAllWindows()
 params = {
-    "threshold" : 54,
+    "threshold" : 36,
     "circularity" : 1.3,
-    "extend" : 0.8,
+    "extend" : 0.85,
     'area_min' : 1000,
     'area_max' : 6000,
     'left_boundary' : 100,
@@ -73,9 +73,8 @@ start = time.time()
 # Even better we can use the result of the previous one to check that the
 # Bounding threshold is corect. I.e. check if you can get a circle with a decent oval
 # ness and area at the bounding threshold and so on
-plot = True
+plot = False
 
-kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
 def pupil_process(buffer, index_start, cam_index, mapper):
     
     camera = cv2.VideoCapture(cam_index)
@@ -96,20 +95,30 @@ def detect(image, params, previous_result=None):
     if plot:
         cv2.imshow("image_unblurred", gray)
         cv2.waitKey(0)
-    gray = cv2.GaussianBlur(gray, (7,7), 1) 
 
     if plot:
         cv2.imshow("image", gray)
         cv2.waitKey(0)
 
+    if plot:
+        cv2.imshow("image_grades", gray)
+        cv2.waitKey(0)
 
     retval, thresholded = cv2.threshold(gray, params['threshold'], 255, 0)
+
+    for r in range(1, 6):
+        if True:
+            cv2.imshow("threshold", thresholded)
+            cv2.waitKey(0)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2*r + 1, 2 * r + 1))
+        thresholded = cv2.morphologyEx(thresholded, cv2.MORPH_CLOSE, kernel)
+        thresholded = cv2.morphologyEx(thresholded, cv2.MORPH_OPEN, kernel)
+
     if plot:
         cv2.imshow("threshold", thresholded)
         cv2.waitKey(0)
 
-    closed = cv2.erode(cv2.dilate(thresholded, kernel, iterations=1), kernel, iterations=1)
-    #closed = cv2.morphologyEx(close, cv2.MORPH_CLOSE, kernel)
+    closed = thresholded
 
     if plot:
         cv2.imshow("closed", closed)
@@ -129,22 +138,30 @@ def detect(image, params, previous_result=None):
         contour = cv2.convexHull(contour)
 
         area = cv2.contourArea(contour)
+        print("Area: ", area)
         if area < params['area_min'] or area > params['area_max']:
             continue
+        print("Got past area")
+
         num_area_pass += 1
         circumference = cv2.arcLength(contour,True)
         circularity = circumference ** 2 / (4*math.pi*area)
+
+        print("Circularity: ", circularity)
         if circularity > params['circularity']:
             continue
         num_circularity_pass += 1
+        print("Got past circularity")
 
         bounding_box = cv2.boundingRect(contour)
 
         extend = area / (bounding_box[2] * bounding_box[3])
 
         # reject the contours with big extend
+        print("Extend: ", extend)
         if extend > params['extend']:
             continue
+        print("Got past extend")
         num_extend_pass += 1
 
         # calculate countour center and draw a dot there
@@ -158,17 +175,19 @@ def detect(image, params, previous_result=None):
         ellipse = cv2.fitEllipse(contour)
         print(ellipse)
         cv2.ellipse(drawing, box=ellipse, color=(0, 255, 0))
+        if True:
+            cv2.imshow("Drawing", drawing)
+            cv2.waitKey(0)
         return ellipse
     
     # If you do find the eye, then update the darkness threshold
     #       if num_extend_pass == 1:
 
 
-    if plot:
-        cv2.imshow("Drawing", drawing)
-        cv2.waitKey(0)
 
 def get_average_values(image, ellipse_parameters):
+    if ellipse_parameters == None:
+        return params['threshold']
     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY).reshape(image.shape[0], image.shape[1], 1)
     x = np.linspace(0, image.shape[1], image.shape[1])
     y = np.linspace(0, image.shape[0], image.shape[0])
@@ -180,17 +199,18 @@ def get_average_values(image, ellipse_parameters):
 
     center1 = np.array([ellipse_parameters[0][1], ellipse_parameters[0][0]])
 
-    d = np.sum((coordinates - center1) ** 2, axis=2).reshape(image.shape[0], image.shape[1], 1)
+    d = np.sqrt(np.sum((coordinates - center1) ** 2, axis=2).reshape(image.shape[0], image.shape[1], 1))
 
     # Average pixel in ellipse is
-    return np.mean(image[d < sum(ellipse_parameters[1])/2])
+    return np.mean(image[d < .5*sum(ellipse_parameters[1])/2])
 
 # show the frame
 #detect(img, params)
 
-for _ in range(10):
+for _ in range(100):
     img = video.read()[1]
-    params['threshold'] = get_average_values(img, detect(img, params)) + 8
+    params['threshold'] = get_average_values(img, detect(img, params))
+    print(params['threshold'], 'new threshold')
 
 print(time.time() - start)
 
