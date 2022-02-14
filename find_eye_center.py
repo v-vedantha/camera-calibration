@@ -50,7 +50,7 @@ params = {
     "circularity" : 1.3,
     "extend" : 0.85,
     'area_min' : 1000,
-    'area_max' : 6000,
+    'area_max' : 5000,
     'left_boundary' : 100,
     'right_boundary' : 1000,
     'top_boundary' : 100,
@@ -74,7 +74,7 @@ start = time.time()
 # Even better we can use the result of the previous one to check that the
 # Bounding threshold is corect. I.e. check if you can get a circle with a decent oval
 # ness and area at the bounding threshold and so on
-plot = True
+plot = False
 
 def pupil_process(buffer, index_start, cam_index, mapper):
     
@@ -89,7 +89,7 @@ def pupil_process(buffer, index_start, cam_index, mapper):
             mapper(result).move_to_shared_mem(buffer, index_start)
 
 def is_near(ellipse1, ellipse2):
-    return (ellipse1[0][0] - ellipse2[0][0]) ** 2 + (ellipse1[0][1] - ellipse2[0][1]) ** 2 < 100
+    return (ellipse1[0][0] - ellipse2[0][0]) ** 2 + (ellipse1[0][1] - ellipse2[0][1]) ** 2 < 1000
 
 def detect(image, params, previous_result=None):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -143,17 +143,14 @@ def detect(image, params, previous_result=None):
         if circularity > params['circularity']:
             continue
         num_circularity_pass += 1
-        print("Got past circularity")
+        #print("Got past circularity")
 
         bounding_box = cv2.boundingRect(contour)
 
         extend = area / (bounding_box[2] * bounding_box[3])
 
         # reject the contours with big extend
-        print("Extend: ", extend)
-        if extend > params['extend']:
-            continue
-        print("Got past extend")
+        #print("Extend: ", extend)
         num_extend_pass += 1
 
         # calculate countour center and draw a dot there
@@ -163,12 +160,10 @@ def detect(image, params, previous_result=None):
             cv2.circle(drawing, center, 3, (0, 255, 0), -1)
 
         # fit an ellipse around the contour and draw it into the image
-
-        print(circularity, area)
         ellipse = cv2.fitEllipse(contour)
-        if params['previous_ellipse'] is not None:
-            if not is_near(params['previous_ellipse'], ellipse):
-                continue
+        # if params['previous_ellipse'] is not None:
+        #     if not is_near(params['previous_ellipse'], ellipse):
+        #         continue
 
         params['previous_ellipse'] = ellipse
         print(ellipse)
@@ -211,27 +206,45 @@ def get_average_values(image):
 from matplotlib import pyplot as plt
 def histogram(image):
     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    image = image[300:700, 500:1000]
+    image = image
 
-    cv2.imshow("close", image)
-    cv2.waitKey(0)
     bins = np.log(cv2.calcHist([image], [0], None, [64], [0,256]))
     # Find local minimum of nearest 3 neighbors
-    
+
     x = list(range(len(bins)))
-    plt.plot(x, bins)
-    plt.show()
+    if plot:
+        plt.plot(x, bins)
+        plt.show()
+    # Find a 5 local minimum
+    for i in range(2, len(bins)):
+        try:
+            if bins[i] < min([bins[i-1], bins[i-2], bins[1+i], bins[i+2]]):
+                return x[i] * 4
+        except:
+            raise ValueError("No local minimum found")
 
 
-histogram(image)
-detect(image, params)
 
-# for _ in range(1000):
-#     img = video.read()[1]
-#     detect(img, params)
-#     params['threshold'] = get_average_values(img)
-#     print(params['threshold'], 'new threshold')
+failed = 0
+detect_missed = 0
+for _ in range(1000):
+    image = video.read()[1]
+    try:
+        new_hist = histogram(image[280:700, 600:1200])
+        if new_hist > 64:
+            raise ValueError("F")
 
+        params['threshold'] = new_hist
+    except:
+        print("Failed")
+        failed += 1
+        continue
+    print(params['threshold'])
+    if detect(image[280:700, 600:1200], params) == None:
+        detect_missed += 1
+
+print(failed)
+print(detect_missed)
 print(time.time() - start)
 
 
