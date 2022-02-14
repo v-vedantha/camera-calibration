@@ -46,7 +46,7 @@ for _ in range(int(sys.argv[2])):
 
 # cv2.destroyAllWindows()
 params = {
-    "threshold" : 36,
+    "threshold" : 56,
     "circularity" : 1.3,
     "extend" : 0.85,
     'area_min' : 1000,
@@ -54,7 +54,8 @@ params = {
     'left_boundary' : 100,
     'right_boundary' : 1000,
     'top_boundary' : 100,
-    'bottom_boundary' : 1000
+    'bottom_boundary' : 1000,
+    'previous_ellipse' : None
 }
 import time
 image = img
@@ -73,7 +74,7 @@ start = time.time()
 # Even better we can use the result of the previous one to check that the
 # Bounding threshold is corect. I.e. check if you can get a circle with a decent oval
 # ness and area at the bounding threshold and so on
-plot = False
+plot = True
 
 def pupil_process(buffer, index_start, cam_index, mapper):
     
@@ -87,27 +88,18 @@ def pupil_process(buffer, index_start, cam_index, mapper):
         if result != None:
             mapper(result).move_to_shared_mem(buffer, index_start)
 
+def is_near(ellipse1, ellipse2):
+    return (ellipse1[0][0] - ellipse2[0][0]) ** 2 + (ellipse1[0][1] - ellipse2[0][1]) ** 2 < 100
 
 def detect(image, params, previous_result=None):
-
-
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     if plot:
         cv2.imshow("image_unblurred", gray)
         cv2.waitKey(0)
-
-    if plot:
-        cv2.imshow("image", gray)
-        cv2.waitKey(0)
-
-    if plot:
-        cv2.imshow("image_grades", gray)
-        cv2.waitKey(0)
-
     retval, thresholded = cv2.threshold(gray, params['threshold'], 255, 0)
 
     for r in range(1, 6):
-        if True:
+        if plot:
             cv2.imshow("threshold", thresholded)
             cv2.waitKey(0)
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2*r + 1, 2 * r + 1))
@@ -171,8 +163,14 @@ def detect(image, params, previous_result=None):
             cv2.circle(drawing, center, 3, (0, 255, 0), -1)
 
         # fit an ellipse around the contour and draw it into the image
+
         print(circularity, area)
         ellipse = cv2.fitEllipse(contour)
+        if params['previous_ellipse'] is not None:
+            if not is_near(params['previous_ellipse'], ellipse):
+                continue
+
+        params['previous_ellipse'] = ellipse
         print(ellipse)
         cv2.ellipse(drawing, box=ellipse, color=(0, 255, 0))
         if True:
@@ -185,9 +183,8 @@ def detect(image, params, previous_result=None):
 
 
 
-def get_average_values(image, ellipse_parameters):
-    if ellipse_parameters == None:
-        return params['threshold']
+def get_average_values(image):
+    ellipse_parameters = params['previous_ellipse']
     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY).reshape(image.shape[0], image.shape[1], 1)
     x = np.linspace(0, image.shape[1], image.shape[1])
     y = np.linspace(0, image.shape[0], image.shape[0])
@@ -199,17 +196,23 @@ def get_average_values(image, ellipse_parameters):
 
     center1 = np.array([ellipse_parameters[0][1], ellipse_parameters[0][0]])
 
-    d = np.sqrt(np.sum((coordinates - center1) ** 2, axis=2).reshape(image.shape[0], image.shape[1], 1))
+    d = np.sqrt((np.sum((coordinates - center1) ** 2, axis=2).reshape(image.shape[0], image.shape[1], 1)))
+
+    a = np.zeros_like(image)
+    a[d < sum(ellipse_parameters[1])/4.2] = 200
+    cv2.imshow("close", a)
+    cv2.waitKey(0)
 
     # Average pixel in ellipse is
-    return np.mean(image[d < .5*sum(ellipse_parameters[1])/2])
+    return np.mean(image[d < sum(ellipse_parameters[1])/4.2])
 
 # show the frame
 #detect(img, params)
 
-for _ in range(100):
+for _ in range(1000):
     img = video.read()[1]
-    params['threshold'] = get_average_values(img, detect(img, params))
+    detect(img, params)
+    params['threshold'] = get_average_values(img)
     print(params['threshold'], 'new threshold')
 
 print(time.time() - start)
