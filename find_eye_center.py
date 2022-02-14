@@ -46,7 +46,7 @@ for _ in range(int(sys.argv[2])):
 
 # cv2.destroyAllWindows()
 params = {
-    "threshold" : 56,
+    "threshold" : 63,
     "circularity" : 1.3,
     "extend" : 0.85,
     'area_min' : 1000,
@@ -208,12 +208,29 @@ def get_average_values(image):
 
 # show the frame
 #detect(img, params)
+from matplotlib import pyplot as plt
+def histogram(image):
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    image = image[300:700, 500:1000]
 
-for _ in range(1000):
-    img = video.read()[1]
-    detect(img, params)
-    params['threshold'] = get_average_values(img)
-    print(params['threshold'], 'new threshold')
+    cv2.imshow("close", image)
+    cv2.waitKey(0)
+    bins = np.log(cv2.calcHist([image], [0], None, [64], [0,256]))
+    # Find local minimum of nearest 3 neighbors
+    
+    x = list(range(len(bins)))
+    plt.plot(x, bins)
+    plt.show()
+
+
+histogram(image)
+detect(image, params)
+
+# for _ in range(1000):
+#     img = video.read()[1]
+#     detect(img, params)
+#     params['threshold'] = get_average_values(img)
+#     print(params['threshold'], 'new threshold')
 
 print(time.time() - start)
 
