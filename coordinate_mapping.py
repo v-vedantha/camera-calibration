@@ -1,99 +1,89 @@
 import torch
 import numpy as np
 import pickle
-
-#class Calibration():
-#
-#    def __init__(self, screen_w, screen_h, camera_w, camera_h):
-#        self.screen_w = screen_w
-#        self.screen_h = screen_h
-#        self.camera_w = camera_w
-#        self.camera_h = camera_h
-#
-#                
-#
-#    def add_calibration_point(self, input, output):
-#
-#    def get_target(self, input):
-#
-#    def hash_input(self, input):
-#        return 
-#
-#    def compute_distance(input, target):
-#
-#    def estimate_position(self, input):
-#        x, y = self.camera_w-input.x, input.y
-#
-#        # Offset by the center of the camera centers
-#        camera_center_x = (input.tr.x + input.br.x + input.bl.x + input.tl.x) / 4
-#        camera_center_y = (input.tr.y + input.br.y + input.bl.y + input.tl.y) / 4
-#        x -= camera_center_x
-#        y -= camera_center_y
-#
-#        # Offset by the angle of the camera
+import tensorboardX
+from tqdm import tqdm
+from calibration_dataset import SimpleDataset
 
 class AI_Calibrate(torch.nn.Module):
 
-    def __init__(self, screen_w, screen_h, camera_w, camera_h):
+    def __init__(self):
         super(AI_Calibrate, self).__init__()
-        self.screen_w = screen_w
-        self.screen_h = screen_h
-        self.camera_w = camera_w
-        self.camera_h = camera_h
-
-
-        self.screen_dims = torch.tensor([screen_w, screen_h]).reshape(1, 2)
-        self.camera_dims = torch.tensor([camera_w, camera_h]).reshape(2, 1)
-
-        self.layer1 = torch.nn.Linear((108+10) * 2, 50)
-        self.layer2 = torch.nn.Linear(50, 2)
+        self.layer1 = torch.nn.Linear(113, 1150)
+        self.layer2 = torch.nn.Linear(1150, 150)
+        self.layer3 = torch.nn.Linear(150, 150)
+        self.layer4 = torch.nn.Linear(150, 50)
+        self.layer5 = torch.nn.Linear(50, 2)
 
     def forward(self, input):
-        # Convert input into a tensor
-        # Concatenate inputs and logged inputs
-        input = input.reshape(1, 2, -1)
-        input = input / self.camera_dims
-        input = input.reshape(1, -1)
-        logged_inputs = torch.log(input)
-        input = torch.cat((logged_inputs, input), 1)
-        
-
         input = self.layer1(input)
-        input = torch.nn.Tanh()(input)
+        input = torch.nn.LeakyReLU()(input)
         input = self.layer2(input)
-        input = torch.nn.Tanh()(input)
-        
-        input = input*self.screen_dims
+        input = torch.nn.LeakyReLU()(input)
+        input = self.layer3(input)
+        input = torch.nn.LeakyReLU()(input)
+        input = self.layer4(input)
+        input = torch.nn.LeakyReLU()(input)
+        input = self.layer5(input)
 
         return input
 
 class Predictor():
-    def __init__(self, screen_w, screen_h, camera_w, camera_h):
-        self.screen_w = screen_w
-        self.screen_h = screen_h
-        self.camera_w = camera_w
-        self.camera_h = camera_h
+    def __init__(self):
+        self.writer = tensorboardX.SummaryWriter('')
+        self.index=  0
 
-        self.model = AI_Calibrate(screen_w, screen_h, camera_w, camera_h)
-        self.optim = torch.optim.Adam(self.model.parameters(), lr=0.1)
+        self.mean_inputs = None
+        self.mean_outputs = None
+        self.std_inputs = None
+        self.std_outputs = None
 
-    def add_calibration_point(self, input, output):
-        input = input.convert_to_torch()
-        output = output.convert_to_torch().reshape(1,2)
+        self.model = AI_Calibrate()
+        self.optim = torch.optim.Adam(self.model.parameters(), lr=0.001)
+        self.criterion = torch.nn.MSELoss()
+    
+    def calibrate(self, inputs, outputs):
+        self.mean_inputs = torch.mean(inputs, 0)
+        self.mean_outputs = torch.mean(outputs, 0)
+        self.std_inputs = torch.std(inputs, 0)
+        self.std_outputs = torch.std(outputs, 0)
+
+        inputs = (inputs - self.mean_inputs) / self.std_inputs
+        outputs = (outputs - self.mean_outputs) / self.std_outputs
+
+        train_dataset = SimpleDataset(inputs, outputs)
+        test_dataset = SimpleDataset(inputs, outputs)
+        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=20, shuffle=True)
+        test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=20, shuffle=True)
+
+        for epoch in range(60):
+            avg_loss = []
+            test_loss = []
+            for input, output in tqdm(train_loader):
+                avg_loss.append(self.train_single_point(input, output))
+
+            for input, output in tqdm(test_loader):
+                prediction = self.infer(input)
+                loss = self.criterion(output, prediction)
+                test_loss.append(loss.item())
+            
+            self.writer.add_scalar('loss', sum(avg_loss)/ len(avg_loss), epoch)
+            self.writer.add_scalar('test_loss', sum(test_loss)/ len(test_loss), epoch)
+
+    def infer(self, input):
+        input = (input - self.mean_inputs) / self.std_inputs
+        output = self.model(input)
+        return (output * self.std_outputs) + self.mean_inputs
+
+    def train_single_point(self, input, output):
+        input = (input - self.mean_inputs) / self.std_inputs
+        output = (output - self.mean_outputs) / self.std_outputs
         self.optim.zero_grad()
-        pred_output = self.model(input)
-        print("Input: ", input)
-        print("Output: ", output)
-        print("Predicted: ", pred_output)
-        print("Difference: ", pred_output - output)
-        loss = torch.nn.MSELoss()(pred_output, output)
+        inference = self.model(input)
+        loss = self.criterion(output, inference)
         loss.backward()
         self.optim.step()
-
-    def __call__(self, input):
-        input = input.convert_to_torch()
-        output = self.model(input)
-        return Point(output[0,0], output[0,1])
+        return loss.item()
 
 class CoordinatePoint():
     def convert_to_torch(self):
