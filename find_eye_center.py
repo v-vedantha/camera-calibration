@@ -11,11 +11,12 @@ import cv2
 # Read the original image
 # Read from input video
 import sys
-vid_path = sys.argv[1]
-video = cv2.VideoCapture(vid_path)
 
-for _ in range(int(sys.argv[2])):
-    img = video.read()[1]
+# vid_path = sys.argv[1]
+# video = cv2.VideoCapture(vid_path)
+
+# for _ in range(int(sys.argv[2])):
+#     img = video.read()[1]
 
 
 # Display original image
@@ -58,8 +59,8 @@ params = {
     'previous_ellipse' : None
 }
 import time
-image = img
-start = time.time()
+# image = img
+# start = time.time()
 # Since each iteration takes around 0.01 seconds, and for real time we only have at most 10 iterations
 # We can grid search for the correct parameters
 # Then save those and search in that region for the next frame and so on so forth
@@ -126,20 +127,44 @@ def detect(image, params, previous_result=None):
     num_circularity_pass = 0
     num_extend_pass = 0
 
+    area_passing_contours = []
+
     for contour in contours:
         contour = cv2.convexHull(contour)
 
         area = cv2.contourArea(contour)
-        print("Area: ", area)
+        #print("Area: ", area)
         if area < params['area_min'] or area > params['area_max']:
             continue
-        print("Got past area")
+        #print("Got past area")
+        area_passing_contours.append((contour, area))
 
+    if len(area_passing_contours) == 0:
+        print("No contours passed area")
+        return None
+    min_contour_circularity = 10
+    min_contour_index = 0
+
+    for i, (contour, area) in enumerate(area_passing_contours):
+        circumference = cv2.arcLength(contour,True)
+        circularity = circumference ** 2 / (4*math.pi*area)
+        if circularity < min_contour_circularity:
+            min_contour_circularity = circularity
+            min_contour_index = i
+
+    if min_contour_circularity > params['circularity']:
+        print("Circularity not high enough")
+        return None
+    
+    
+    for contour in [area_passing_contours[min_contour_index][0]]:
+
+    
         num_area_pass += 1
         circumference = cv2.arcLength(contour,True)
         circularity = circumference ** 2 / (4*math.pi*area)
 
-        print("Circularity: ", circularity)
+        # print("Circularity: ", circularity)
         if circularity > params['circularity']:
             continue
         num_circularity_pass += 1
@@ -166,9 +191,8 @@ def detect(image, params, previous_result=None):
         #         continue
 
         params['previous_ellipse'] = ellipse
-        print(ellipse)
         cv2.ellipse(drawing, box=ellipse, color=(0, 255, 0))
-        if True:
+        if plot:
             cv2.imshow("Drawing", drawing)
             cv2.waitKey(0)
         return ellipse
@@ -208,11 +232,11 @@ def histogram(image):
     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     image = image
 
-    bins = np.log(cv2.calcHist([image], [0], None, [64], [0,256]))
+    bins = cv2.calcHist([image], [0], None, [64], [0,256])
     # Find local minimum of nearest 3 neighbors
 
     x = list(range(len(bins)))
-    if plot:
+    if plot and True:
         plt.plot(x, bins)
         plt.show()
     # Find a 5 local minimum
@@ -225,27 +249,24 @@ def histogram(image):
 
 
 
-failed = 0
-detect_missed = 0
-for _ in range(1000):
-    image = video.read()[1]
-    try:
-        new_hist = histogram(image[280:700, 600:1200])
-        if new_hist > 64:
-            raise ValueError("F")
+# failed = 0
+# detect_missed = 0
+# for _ in range(1000):
+#     image = video.read()[1]
+#     try:
+#         new_hist = histogram(image[280:700, 600:1200])
+#         print(new_hist)
 
-        params['threshold'] = new_hist
-    except:
-        print("Failed")
-        failed += 1
-        continue
-    print(params['threshold'])
-    if detect(image[280:700, 600:1200], params) == None:
-        detect_missed += 1
+#         params['threshold'] = new_hist
+#     except:
+#         cv2.imshow("Drawing", image[280:700, 600:1200])
+#         cv2.waitKey(0)
+#         print("Failed")
+#         failed += 1
+#         continue
+#     if detect(image[280:700, 600:1200], params) == None:
+#         detect_missed += 1
 
-print(failed)
-print(detect_missed)
-print(time.time() - start)
-
-
-
+# print(failed)
+# print(detect_missed)
+# print(time.time() - start)
